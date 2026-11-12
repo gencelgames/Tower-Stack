@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tower Stack</title>
+<style>
+:root{--bg:#f2ede4;--ink:#2b2a33;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1b24;--ink:#f2ede4}}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:'Trebuchet MS',Verdana,sans-serif;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+canvas{display:block;margin:0 auto;border-radius:12px}
+#hud{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:0;right:0;text-align:center;pointer-events:none}
+#sc{font-size:3rem;font-weight:700;line-height:1}
+#msg{margin-top:6px;opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="c" width="360" height="600"></canvas>
+<div id="hud"><div id="sc">0</div><div id="msg">Tap to drop the block</div></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=360,H=600,BH=26;
+const sc=document.getElementById('sc'),msg=document.getElementById('msg');
+let best=0;try{best=+localStorage.getItem('ts-best')||0}catch(e){}
+let tower,cur,dir,spd,camY,st='idle',combo,bits;
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);c.style.width=W*s+'px';c.style.height=H*s+'px'}
+addEventListener('resize',fit);fit();
+function hue(i){return 'hsl('+((i*18+200)%360)+',65%,58%)'}
+function reset(){tower=[{x:80,w:200,i:0}];spawn();spd=2.2;camY=0;combo=0;bits=[];sc.textContent=0}
+function spawn(){const top=tower[tower.length-1];cur={x:0,w:top.w,i:tower.length};dir=1}
+function drop(){
+ if(st!=='play'){reset();st='play';msg.textContent='Line it up';return}
+ const top=tower[tower.length-1];
+ let d=cur.x-top.x,ov=top.w-Math.abs(d);
+ if(ov<=0){bits.push({x:cur.x,w:cur.w,y:tower.length,vy:0,i:cur.i});st='over';
+  if(tower.length-1>best){best=tower.length-1;try{localStorage.setItem('ts-best',best)}catch(e){}}
+  msg.textContent='Fell! Best '+best+' · tap to restart';return}
+ if(Math.abs(d)<5){cur.x=top.x;combo++;msg.textContent='Perfect x'+combo}
+ else{combo=0;msg.textContent='Line it up';
+  const cutX=d>0?top.x+top.w:cur.x,cutW=Math.abs(d);
+  bits.push({x:cutX,w:cutW,y:tower.length,vy:0,i:cur.i});
+  cur.w=ov;cur.x=d>0?cur.x:top.x}
+ tower.push({x:cur.x,w:cur.w,i:cur.i});
+ sc.textContent=tower.length-1;
+ spd=Math.min(2.2+tower.length*.08,6);spawn();
+}
+addEventListener('pointerdown',e=>{e.preventDefault();drop()});
+addEventListener('keydown',e=>{if(e.code==='Space')drop()});
+reset();
+function frame(){
+ if(st==='play'){cur.x+=dir*spd;if(cur.x+cur.w>W){cur.x=W-cur.w;dir=-1}if(cur.x<0){cur.x=0;dir=1}}
+ const target=Math.max(0,(tower.length-9)*BH);camY+=(target-camY)*.1;
+ bits.forEach(b=>{b.vy+=.6;b.y-=0;b.fall=(b.fall||0)+b.vy});
+ x.clearRect(0,0,W,H);
+ const baseY=H-60+camY;
+ const draw=(b,lvl,off)=>{x.fillStyle=hue(b.i);x.fillRect(b.x,baseY-lvl*BH+(off||0),b.w,BH-2)};
+ tower.forEach((b,l)=>draw(b,l));
+ bits.forEach(b=>draw(b,b.y-1,b.fall));
+ if(st==='play')draw(cur,tower.length);
+ if(st==='idle'){x.fillStyle=getComputedStyle(document.body).color;x.globalAlpha=.6;x.font='20px sans-serif';x.textAlign='center';x.fillText('Tap to start',W/2,H/2-60);x.globalAlpha=1}
+ requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
